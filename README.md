@@ -82,7 +82,6 @@ npm run dev          # Start on port 5173
 | `MONGODB_URI` | MongoDB connection string |
 | `JWT_SECRET` | Secret key for JWT tokens |
 | `JWT_EXPIRES_IN` | Token expiry (default: 30d) |
-| `IIIT_EMAIL_DOMAIN` | Email domain for IIIT users (default: `iiit.ac.in`) |
 | `EMAIL_HOST` | SMTP host (default: smtp.gmail.com) |
 | `EMAIL_PORT` | SMTP port (default: 587) |
 | `EMAIL_USER` | Gmail/SMTP email for sending tickets |
@@ -122,7 +121,7 @@ npm run dev          # Start on port 5173
 - All required attributes: name, description, type, eligibility, dates, limits, registration fee, tags
 - Dynamic form builder with 8 field types (locked after first registration)
 - Merchandise variants with size/color/stock/price + configurable purchase limit
-- Event state machine: Draft → Published → Ongoing → Completed/Cancelled
+- Event state machine: Draft → Published → Ongoing → Completed/ Cancelled
 
 ### Participant Features (Section 9)
 - **Dashboard**: Stats, upcoming events, participation history with tabs (Normal/Merchandise/Completed/Cancelled), clickable ticket IDs
@@ -145,6 +144,23 @@ npm run dev          # Start on port 5173
 - **Dashboard**: Platform stats (users, organizers, events, registrations, revenue, pending resets)
 - **Organizer Management**: Create with auto-generated credentials displayed once, Disable/Archive/Delete
 - **Password Reset Requests**: View/approve/reject with admin comments, auto-generated new passwords
+
+---
+
+## Design & Technical Decisions
+
+- **MERN Stack**: Chose MongoDB + Express + React + Node.js for a unified JavaScript stack across frontend and backend, reducing context-switching and enabling shared validation logic. MongoDB's document model maps naturally to event objects with variable schemas (normal vs. merchandise vs. hackathon).
+- **JWT over Sessions**: Stateless JWT tokens allow horizontal scaling without shared session stores. Tokens are persisted in `localStorage` so users stay logged in across browser restarts — critical for a fest platform where users check back frequently over multiple days.
+- **Socket.IO over SSE/polling**: Server-Sent Events are unidirectional, but the forum requires bidirectional communication (typing indicators, real-time replies). Socket.IO provides WebSocket transport with automatic fallback to long-polling, plus built-in room management (`join`/`leave`) which maps directly to per-event forum channels.
+- **Event State Machine (Draft → Published → Ongoing → Completed/Cancelled)**: Enforced at the backend level to prevent invalid transitions. Editing rules are tied to state — Draft allows full editing, Published restricts to description/deadline/limit changes, Ongoing/Completed locks the event. This prevents data inconsistency once participants have registered.
+- **Preference-based Event Ordering**: Events from followed clubs are boosted by +10 score, and each matching interest tag adds +3. This scoring approach (vs. strict filtering) ensures users still discover events outside their preferences while seeing relevant ones first.
+- **Payment Approval Decoupled from Stock**: For merchandise, stock is **not decremented** at purchase time — only on organizer approval. This eliminates race conditions where rejected payments would need stock rollback, and gives organizers full visibility before committing inventory.
+- **Anonymous Feedback via SHA-256 Hashing**: User identity is hashed with `SHA-256 + JWT_SECRET` before storage. The database stores only the hash, making it impossible to reverse-lookup who submitted feedback, while the unique constraint on `(eventId, userHash)` still prevents duplicate submissions.
+- **TanStack Query for Server State**: Chose over Redux/Zustand because the app is primarily server-state driven (events, registrations, tickets). TanStack Query provides automatic caching, background refetching, and cache invalidation — eliminating manual loading/error state management that would otherwise bloat every component.
+- **React Hook Form over Formik**: Event creation forms have 10+ fields with conditional sections (merchandise variants, hackathon team size). React Hook Form uses uncontrolled inputs by default, avoiding re-renders on every keystroke — measurably faster for complex forms.
+- **Multer for File Uploads**: Chose disk storage over cloud (S3) to keep the project self-contained with zero external service dependencies beyond MongoDB and SMTP. Payment proof images are served statically from the `/uploads/` directory.
+- **Role-Based Access at Two Layers**: Both frontend (`ProtectedRoute` component) and backend (`requireRole` middleware) enforce role checks. Frontend guards improve UX by preventing navigation to unauthorized pages; backend guards are the actual security boundary, preventing API abuse via direct requests.
+- **Tailwind CSS over Component Libraries (MUI/Bootstrap)**: Utility-first approach enables rapid custom design without fighting component library defaults. Combined with Vite's JIT compilation, only used utilities ship to production, keeping bundle size minimal.
 
 ---
 

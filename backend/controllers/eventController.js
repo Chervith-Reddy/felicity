@@ -107,7 +107,7 @@ exports.getEvents = async (req, res) => {
       const interests = (req.user.areasOfInterest || []).map(i => i.toLowerCase());
 
       events = events.map(e => {
-        const eo = e.toObject();
+        const eo = e.toObject ? e.toObject() : e;
         let score = 0;
         if (followedIds.includes(eo.organizer?._id?.toString())) score += 10;
         const eventTags = (eo.tags || []).map(t => t.toLowerCase());
