@@ -9,7 +9,7 @@ const registrationSchema = new mongoose.Schema({
   },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   event: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', required: true },
-  registrationType: { type: String, enum: ['normal', 'merchandise'], required: true },
+  registrationType: { type: String, enum: ['normal', 'merchandise', 'hackathon'], required: true },
   status: { type: String, enum: ['active', 'cancelled', 'completed'], default: 'active' },
   // Normal event: custom form responses
   formResponses: [{

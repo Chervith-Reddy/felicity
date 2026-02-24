@@ -172,7 +172,7 @@ exports.reviewPayment = async (req, res) => {
 
     if (!registration) return res.status(404).json({ message: 'Registration not found' });
 
-    const event = await Event.findOne({ _id: registration.event._id, organizer: req.user._id });
+    const event = await Event.findOne({ _id: registration.event._id, organizer: req.user._id }).populate('organizer');
     if (!event) return res.status(403).json({ message: 'Not your event' });
 
     if (registration.paymentStatus !== 'pending') {
@@ -202,7 +202,7 @@ exports.reviewPayment = async (req, res) => {
 
       await Event.findByIdAndUpdate(event._id, { $inc: { registrationCount: 1, revenue: registration.totalAmount } });
 
-      try { await sendTicketEmail(registration.user, event, registration); } catch (e) { }
+      try { await sendTicketEmail(registration.user, event, registration); } catch (e) { console.error('Merch email error:', e.message); }
     } else {
       registration.paymentStatus = 'rejected';
       registration.paymentReviewedBy = req.user._id;

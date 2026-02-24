@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import api from '../utils/api';
+import queryClient from '../queryClient';
 
 const AuthContext = createContext(null);
 
@@ -24,13 +25,15 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('felicity_token', token);
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     setUser(userData);
+    queryClient.clear(); // Clear stale data from previous user
   };
 
   const logout = async () => {
-    try { await api.post('/auth/logout'); } catch {}
+    try { await api.post('/auth/logout'); } catch { }
     localStorage.removeItem('felicity_token');
     delete api.defaults.headers.common['Authorization'];
     setUser(null);
+    queryClient.clear(); // Flush all cached queries
   };
 
   return (

@@ -24,7 +24,7 @@ export default function TeamPage() {
   });
 
   const respondMutation = useMutation({
-    mutationFn: ({ teamId, action }) => api.post(`/teams/${teamId}/respond`, { action }),
+    mutationFn: ({ teamId, action, memberId }) => api.post(`/teams/${teamId}/respond`, { action, memberId }),
     onSuccess: (res) => {
       queryClient.invalidateQueries(['team', id]);
       queryClient.invalidateQueries(['my-teams']);
@@ -117,16 +117,16 @@ export default function TeamPage() {
               </div>
               <div className="flex items-center space-x-2">
                 <span className={`badge text-xs ${statusColors[member.status]}`}>{member.status}</span>
-                {/* Accept/decline for pending invite to current user */}
-                {member.status === 'pending' && (member.user?._id === user?._id || member.user === user?._id) && (
+                {/* Leader sees accept/decline for pending members */}
+                {member.status === 'pending' && isLeader && (
                   <div className="flex space-x-1">
-                    <button onClick={() => respondMutation.mutate({ teamId: id, action: 'accept' })}
-                      className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200"
+                    <button onClick={() => respondMutation.mutate({ teamId: id, action: 'accept', memberId: member.user?._id || member.user })}
+                      className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200" title="Accept"
                     >
                       <FiCheck size={14} />
                     </button>
-                    <button onClick={() => respondMutation.mutate({ teamId: id, action: 'decline' })}
-                      className="p-1 bg-red-100 text-red-500 rounded hover:bg-red-200"
+                    <button onClick={() => respondMutation.mutate({ teamId: id, action: 'decline', memberId: member.user?._id || member.user })}
+                      className="p-1 bg-red-100 text-red-500 rounded hover:bg-red-200" title="Decline"
                     >
                       <FiX size={14} />
                     </button>

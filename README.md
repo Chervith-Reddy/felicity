@@ -15,15 +15,20 @@ A centralized event management platform built with the MERN Stack for IIIT Hyder
 | **Socket.IO Client** | Real-time | WebSocket client for live forum and attendance updates |
 | **date-fns** | Dates | Lightweight date formatting (vs. moment.js which is heavy) |
 | **react-icons** | Icons | Tree-shakable icon library, only imports used icons |
+| **Framer Motion** | Animations | Declarative animations for page transitions and UI interactions |
+| **Recharts** | Charts | Composable chart library for organizer/admin analytics dashboards |
+| **html5-qrcode** | QR Scanning | Browser-based QR code scanning for attendance check-in |
 | **Express.js** | Backend | Minimal, unopinionated Node.js framework for REST APIs |
 | **Mongoose** | ODM | Schema validation and middleware hooks for MongoDB |
 | **bcryptjs** | Security | Password hashing with salt rounds for secure storage |
 | **jsonwebtoken** | Auth | JWT-based stateless authentication across all roles |
+| **express-validator** | Validation | Input validation and sanitization middleware for API routes |
 | **Socket.IO** | Real-time | WebSocket server for forum chat and live attendance |
 | **Nodemailer** | Email | SMTP email sending for ticket confirmations |
 | **QRCode** | Tickets | QR code generation for participant tickets |
 | **csv-stringify** | Export | CSV generation for participant/attendance exports |
 | **Multer** | Uploads | File upload handling for payment proofs |
+| **Fuse.js** | Search | Fuzzy search library for partial/approximate event matching |
 | **Axios** | HTTP (Discord) | HTTP client for Discord webhook integration |
 
 ---
@@ -60,8 +65,7 @@ felicity/
 ```bash
 cd backend
 npm install
-cp .env.example .env
-# Edit .env with your MongoDB URI and other settings
+# Create .env with your MongoDB URI, JWT secret, and SMTP settings (see Environment Variables below)
 npm run seed:admin   # Create admin account
 npm run dev          # Start dev server on port 5000
 ```
@@ -234,38 +238,118 @@ npm run dev          # Start on port 5173
 
 ## API Endpoints
 
+### Authentication
 | Method | Endpoint | Description |
 |---|---|---|
 | POST | `/api/auth/register` | Register participant |
 | POST | `/api/auth/login` | Participant/Admin login |
 | POST | `/api/auth/organizer/login` | Organizer login |
 | GET | `/api/auth/me` | Get current user |
+| POST | `/api/auth/logout` | Logout current user |
+
+### Events
+| Method | Endpoint | Description |
+|---|---|---|
 | GET | `/api/events` | List events (with search/filters) |
 | GET | `/api/events/trending` | Top 5 events last 24h |
+| GET | `/api/events/:id` | Get single event details |
 | POST | `/api/events` | Create event (organizer) |
-| PUT | `/api/events/:id` | Update event |
-| PATCH | `/api/events/:id/status` | Change event status |
-| PUT | `/api/events/:id/form` | Update form builder |
-| GET | `/api/events/:id/participants` | List participants |
-| GET | `/api/events/:id/participants/csv` | Export participants CSV |
-| POST | `/api/registrations` | Register for event |
+| PUT | `/api/events/:id` | Update event (organizer) |
+| DELETE | `/api/events/:id` | Delete event (organizer/admin) |
+| PATCH | `/api/events/:id/status` | Change event status (organizer) |
+| PUT | `/api/events/:id/form` | Update form builder (organizer) |
+| POST | `/api/events/:id/view` | Increment view count |
+| GET | `/api/events/:id/participants` | List participants (organizer/admin) |
+| GET | `/api/events/:id/export` | Export participants CSV (organizer/admin) |
+
+### Registrations & Payments
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/registrations` | Register for event (with optional payment proof) |
 | GET | `/api/registrations/my` | My registrations |
+| DELETE | `/api/registrations/:id` | Cancel registration |
+| GET | `/api/registrations/event/:eventId/pending-payments` | Pending payment approvals (organizer) |
+| PATCH | `/api/registrations/:id/payment-review` | Approve/reject payment (organizer) |
+
+### Tickets
+| Method | Endpoint | Description |
+|---|---|---|
 | GET | `/api/tickets/:ticketId` | Get ticket details |
+
+### Teams (Hackathon)
+| Method | Endpoint | Description |
+|---|---|---|
 | POST | `/api/teams` | Create team |
-| POST | `/api/teams/:id/join` | Join team via code |
-| POST | `/api/teams/:id/respond` | Accept/decline invite |
+| GET | `/api/teams/my` | Get my teams |
+| GET | `/api/teams/join/:inviteCode` | Get team by invite code |
+| POST | `/api/teams/join` | Join team via invite code |
+| POST | `/api/teams/:id/respond` | Accept/decline team invite |
+| POST | `/api/teams/:id/invite` | Invite member to team |
+| DELETE | `/api/teams/:id/leave` | Leave team |
+| GET | `/api/teams/:id` | Get team details |
+
+### Attendance
+| Method | Endpoint | Description |
+|---|---|---|
 | POST | `/api/attendance/scan` | QR scan check-in |
 | POST | `/api/attendance/manual` | Manual check-in |
 | GET | `/api/attendance/:eventId` | Attendance dashboard |
-| GET | `/api/attendance/:eventId/csv` | Export attendance CSV |
-| GET | `/api/forum/:eventId` | Get forum messages |
-| POST | `/api/forum/:eventId/announce` | Post announcement |
-| POST | `/api/feedback` | Submit anonymous feedback |
-| GET | `/api/feedback/event/:eventId` | View event feedback |
-| POST | `/api/admin/organizers` | Create organizer (admin) |
+| GET | `/api/attendance/:eventId/export` | Export attendance CSV |
+| DELETE | `/api/attendance/:eventId/:attendanceId` | Revert check-in |
+
+### Forum
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/forum/:eventId/messages` | Get forum messages |
+| POST | `/api/forum/:eventId/announce` | Post announcement (organizer) |
+| PATCH | `/api/forum/:eventId/messages/:msgId/pin` | Pin/unpin message (organizer) |
+| DELETE | `/api/forum/:eventId/messages/:msgId` | Delete message (organizer) |
+| POST | `/api/forum/:eventId/messages/:msgId/react` | React to message |
+
+### Feedback
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/feedback/:eventId` | Submit anonymous feedback |
+| GET | `/api/feedback/:eventId` | View event feedback (organizer) |
+| GET | `/api/feedback/:eventId/check` | Check if already submitted |
+
+### Admin
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/admin/organizers` | Create organizer |
+| GET | `/api/admin/organizers` | List organizers |
+| PATCH | `/api/admin/organizers/:id/status` | Update organizer status |
+| DELETE | `/api/admin/organizers/:id` | Delete organizer |
+| GET | `/api/admin/users` | List users |
+| PATCH | `/api/admin/users/:id/status` | Update user status |
 | GET | `/api/admin/stats` | Platform statistics |
-| GET | `/api/password-reset-requests` | View reset requests (admin) |
+
+### Password Reset
+| Method | Endpoint | Description |
+|---|---|---|
 | POST | `/api/password-reset-requests` | Submit reset request (organizer) |
+| GET | `/api/password-reset-requests/my` | My reset requests (organizer) |
+| GET | `/api/password-reset-requests` | View all requests (admin) |
+| PATCH | `/api/password-reset-requests/:id/approve` | Approve request (admin) |
+| PATCH | `/api/password-reset-requests/:id/reject` | Reject request (admin) |
+| POST | `/api/password-reset-requests/:id/acknowledge` | Acknowledge credential (admin) |
+
+### User & Profile
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/api/users/onboarding` | Complete onboarding (participant) |
+| POST | `/api/users/change-password` | Change password |
+| PUT | `/api/users/profile` | Update profile |
+| GET | `/api/users/organizers` | List all organizers (for follow) |
+
+### Organizer
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/organizers/my-events` | Get organizer's events |
+| GET | `/api/organizers/dashboard-analytics` | Dashboard analytics |
+| GET | `/api/organizers/my-ongoing` | Get ongoing events |
+| GET | `/api/organizers/analytics/:eventId` | Event analytics |
+| GET | `/api/organizers/:id` | Public organizer profile + events |
 
 ---
 

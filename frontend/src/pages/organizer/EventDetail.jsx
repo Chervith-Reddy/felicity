@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { io } from 'socket.io-client';
+import toast from 'react-hot-toast';
 import {
     FiCalendar, FiUsers, FiMapPin, FiTag, FiDollarSign,
     FiBarChart2, FiCheckCircle, FiDownload, FiSearch,
-    FiEdit, FiActivity, FiCreditCard, FiMessageSquare
+    FiEdit, FiActivity, FiCreditCard, FiMessageSquare,
+    FiSend, FiTrash2
 } from 'react-icons/fi';
 import api from '../../utils/api';
 
@@ -22,6 +25,10 @@ export default function OrganizerEventDetail() {
     const [activeTab, setActiveTab] = useState('overview');
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('');
+    const [forumMessages, setForumMessages] = useState([]);
+    const [newMessage, setNewMessage] = useState('');
+    const socketRef = useRef(null);
+    const messagesEndRef = useRef(null);
 
     const { data: event, isLoading } = useQuery({
         queryKey: ['event', id],
@@ -57,7 +64,19 @@ export default function OrganizerEventDetail() {
         return matchSearch && matchStatus;
     });
 
-    const handleExport = () => window.open(`/api/events/${id}/export`, '_blank');
+    const handleExport = async () => {
+        try {
+            const res = await api.get(`/events/${id}/export`, { responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `participants-${id}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Export failed:', err);
+        }
+    };
 
     // Aggregate analytics
     const regStats = analyticsData?.registrationStats || [];
@@ -68,10 +87,55 @@ export default function OrganizerEventDetail() {
     const totalActive = attendanceData?.total ?? event?.registrationCount ?? 0;
     const attendanceRate = totalActive > 0 ? Math.round((checkedIn / totalActive) * 100) : 0;
 
+    // Forum: fetch history
+    const { data: forumHistory = [] } = useQuery({
+        queryKey: ['forum', id],
+        queryFn: () => api.get(`/forum/${id}/messages`).then(r => r.data),
+        enabled: activeTab === 'forum'
+    });
+
+    useEffect(() => {
+        if (forumHistory.length) setForumMessages(forumHistory);
+    }, [forumHistory]);
+
+    // Forum: socket connection
+    useEffect(() => {
+        if (activeTab !== 'forum') return;
+        const token = localStorage.getItem('felicity_token');
+        socketRef.current = io('http://localhost:5000', { auth: { token } });
+        socketRef.current.emit('join_forum', id);
+        socketRef.current.on('new_message', (msg) => {
+            setForumMessages(prev => [...prev, msg]);
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        });
+        socketRef.current.on('message_deleted', ({ msgId }) => {
+            setForumMessages(prev => prev.map(m => m._id === msgId ? { ...m, isDeleted: true, content: '[Deleted]' } : m));
+        });
+        socketRef.current.on('message_pinned', (msg) => {
+            setForumMessages(prev => prev.map(m => m._id === msg._id ? { ...m, isPinned: msg.isPinned } : m));
+        });
+        return () => { socketRef.current?.emit('leave_forum', id); socketRef.current?.disconnect(); };
+    }, [id, activeTab]);
+
+    const sendMessage = () => {
+        if (!newMessage.trim() || !socketRef.current) return;
+        socketRef.current.emit('send_message', { eventId: id, content: newMessage.trim() });
+        setNewMessage('');
+    };
+
+    const pinMessage = async (msgId) => {
+        try { await api.patch(`/forum/${id}/messages/${msgId}/pin`); } catch (e) { toast.error('Pin failed'); }
+    };
+
+    const deleteMessage = async (msgId) => {
+        try { await api.delete(`/forum/${id}/messages/${msgId}`); } catch (e) { toast.error('Delete failed'); }
+    };
+
     const tabs = [
         { id: 'overview', icon: FiCalendar, label: 'Overview' },
         { id: 'analytics', icon: FiBarChart2, label: 'Analytics' },
         { id: 'participants', icon: FiUsers, label: 'Participants' },
+        { id: 'forum', icon: FiMessageSquare, label: 'Forum' },
     ];
 
     if (isLoading) return <div className="animate-pulse h-96 bg-gray-200 rounded-xl" />;
@@ -323,8 +387,8 @@ export default function OrganizerEventDetail() {
                                                 <td className="px-4 py-3">
                                                     {reg.paymentStatus && reg.paymentStatus !== 'not_required' ? (
                                                         <span className={`badge text-xs ${reg.paymentStatus === 'approved' ? 'bg-green-100 text-green-700' :
-                                                                reg.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                                    'bg-red-100 text-red-600'}`}>{reg.paymentStatus}</span>
+                                                            reg.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                                'bg-red-100 text-red-600'}`}>{reg.paymentStatus}</span>
                                                     ) : (
                                                         <span className="text-gray-400 text-xs">—</span>
                                                     )}
@@ -348,6 +412,52 @@ export default function OrganizerEventDetail() {
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Forum Tab ─── */}
+            {activeTab === 'forum' && (
+                <div className="card">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Event Discussion (Moderator View)</h2>
+                    <div className="h-96 overflow-y-auto border border-gray-100 rounded-xl p-4 mb-4 space-y-3">
+                        {forumMessages.length === 0 ? (
+                            <div className="flex items-center justify-center h-full text-gray-400"><p>No messages yet</p></div>
+                        ) : (
+                            forumMessages.map((msg, i) => (
+                                <div key={msg._id || i} className="group flex items-start space-x-2">
+                                    <div className={`flex-1 px-4 py-2 rounded-2xl text-sm ${msg.isDeleted ? 'bg-gray-50 text-gray-400 italic' :
+                                            msg.isAnnouncement ? 'bg-primary-100 border border-primary-200 text-primary-800' :
+                                                msg.isPinned ? 'bg-yellow-50 border border-yellow-200 text-gray-800' :
+                                                    'bg-gray-100 text-gray-800'
+                                        }`}>
+                                        {msg.isAnnouncement && <p className="text-xs font-bold text-primary-600 mb-1">📢 ANNOUNCEMENT</p>}
+                                        {msg.isPinned && <p className="text-xs font-bold text-yellow-600 mb-1">📌 Pinned</p>}
+                                        <p className="text-xs opacity-70 mb-0.5">{msg.senderName} {msg.senderRole === 'organizer' && <span className="text-primary-500">(Organizer)</span>}</p>
+                                        <p>{msg.content}</p>
+                                    </div>
+                                    {!msg.isDeleted && (
+                                        <div className="opacity-0 group-hover:opacity-100 flex space-x-1 pt-1 transition-opacity">
+                                            <button onClick={() => pinMessage(msg._id)} className="p-1 rounded bg-yellow-100 text-yellow-600 hover:bg-yellow-200 text-xs" title={msg.isPinned ? 'Unpin' : 'Pin'}>
+                                                📌
+                                            </button>
+                                            <button onClick={() => deleteMessage(msg._id)} className="p-1 rounded bg-red-100 text-red-500 hover:bg-red-200" title="Delete">
+                                                <FiTrash2 size={12} />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+                    <p className="text-xs text-gray-400 mb-2">Type <strong>@all</strong> at the start of your message to send an announcement to all registered participants.</p>
+                    <div className="flex space-x-2">
+                        <input value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()}
+                            className="input-field flex-1" placeholder="Type a message... (use @all for announcements)" />
+                        <button onClick={sendMessage} disabled={!newMessage.trim()} className="btn-primary px-4">
+                            <FiSend size={16} />
+                        </button>
                     </div>
                 </div>
             )}

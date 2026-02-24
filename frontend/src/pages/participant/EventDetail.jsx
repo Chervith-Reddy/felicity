@@ -23,6 +23,7 @@ export default function EventDetail() {
   const [feedbackComment, setFeedbackComment] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [teamName, setTeamName] = useState('');
+  const [teamSize, setTeamSize] = useState('');
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -69,7 +70,7 @@ export default function EventDetail() {
   useEffect(() => {
     if (!isRegistered || activeTab !== 'forum') return;
     const token = localStorage.getItem('felicity_token');
-    socketRef.current = io(window.location.origin, { auth: { token } });
+    socketRef.current = io('http://localhost:5000', { auth: { token } });
     socketRef.current.emit('join_forum', id);
     socketRef.current.on('new_message', (msg) => {
       setForumMessages(prev => [...prev, msg]);
@@ -102,7 +103,7 @@ export default function EventDetail() {
   });
 
   const createTeamMutation = useMutation({
-    mutationFn: () => api.post('/teams', { eventId: id, teamName }),
+    mutationFn: () => api.post('/teams', { eventId: id, teamName, teamSize: parseInt(teamSize) || event?.teamSize || 4 }),
     onSuccess: (res) => { toast.success('Team created!'); queryClient.invalidateQueries(['my-teams']); navigate(`/teams/${res.data._id}`); },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed')
   });
@@ -435,12 +436,18 @@ export default function EventDetail() {
             <>
               <div className="card">
                 <h3 className="font-semibold text-gray-900 mb-3">Create a Team</h3>
-                <div className="flex space-x-3">
+                <div className="flex space-x-3 mb-3">
                   <input value={teamName} onChange={e => setTeamName(e.target.value)} className="input-field flex-1" placeholder="Team name" />
-                  <button onClick={() => createTeamMutation.mutate()} disabled={!teamName.trim() || createTeamMutation.isPending} className="btn-primary px-4">
-                    Create
-                  </button>
+                  <div className="flex items-center space-x-2">
+                    <label className="text-sm text-gray-600 whitespace-nowrap">Size:</label>
+                    <input type="number" min={2} max={event?.teamSize || 4} value={teamSize} onChange={e => setTeamSize(e.target.value)}
+                      className="input-field w-20 text-center" placeholder={String(event?.teamSize || 4)} />
+                  </div>
                 </div>
+                <p className="text-xs text-gray-400 mb-3">Choose your team size (2 to {event?.teamSize || 4} members, including you)</p>
+                <button onClick={() => createTeamMutation.mutate()} disabled={!teamName.trim() || createTeamMutation.isPending} className="btn-primary px-6 py-2">
+                  Create Team
+                </button>
               </div>
               <div className="card">
                 <h3 className="font-semibold text-gray-900 mb-3">Join a Team</h3>

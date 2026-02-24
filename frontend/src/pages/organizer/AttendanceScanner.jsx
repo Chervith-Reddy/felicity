@@ -82,7 +82,19 @@ export default function AttendanceScanner() {
     }
   };
 
-  const handleExport = () => window.open(`/api/attendance/${eventId}/export`, '_blank');
+  const handleExport = async () => {
+    try {
+      const res = await api.get(`/attendance/${eventId}/export`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `attendance-${eventId}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
+  };
 
   const checkedPct = attendanceData ? Math.round((attendanceData.checked / (attendanceData.total || 1)) * 100) : 0;
 
@@ -146,10 +158,9 @@ export default function AttendanceScanner() {
 
             {!manualMode ? (
               <div>
-                <div className={`w-full h-48 rounded-xl border-2 border-dashed flex items-center justify-center mb-4 transition-colors ${
-                  scanResult?.success ? 'border-green-400 bg-green-50' :
-                  scanResult?.success === false ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'
-                }`}>
+                <div className={`w-full h-48 rounded-xl border-2 border-dashed flex items-center justify-center mb-4 transition-colors ${scanResult?.success ? 'border-green-400 bg-green-50' :
+                    scanResult?.success === false ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'
+                  }`}>
                   {scanResult ? (
                     <div className="text-center">
                       {scanResult.success ? (

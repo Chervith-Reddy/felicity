@@ -31,7 +31,19 @@ export default function EventParticipants() {
     return matchSearch && matchStatus;
   });
 
-  const handleExport = () => window.open(`/api/events/${id}/export`, '_blank');
+  const handleExport = async () => {
+    try {
+      const res = await api.get(`/events/${id}/export`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `participants-${id}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
+  };
 
   return (
     <div>
@@ -43,18 +55,18 @@ export default function EventParticipants() {
         <div className="flex space-x-3">
           {event?.eventType !== 'merchandise' && (
             <Link to={`/organizer/events/${id}/attendance`} className="btn-secondary flex items-center space-x-2 py-2">
-              <FiActivity size={14}/>
+              <FiActivity size={14} />
               <span>Attendance</span>
             </Link>
           )}
           {event?.eventType === 'merchandise' && event?.requiresPaymentApproval && (
             <Link to={`/organizer/events/${id}/payments`} className="btn-secondary flex items-center space-x-2 py-2">
-              <FiCreditCard size={14}/>
+              <FiCreditCard size={14} />
               <span>Payments</span>
             </Link>
           )}
           <button onClick={handleExport} className="btn-secondary flex items-center space-x-2">
-            <FiDownload size={16}/>
+            <FiDownload size={16} />
             <span>Export CSV</span>
           </button>
         </div>

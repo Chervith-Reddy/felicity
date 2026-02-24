@@ -7,11 +7,18 @@ const { sendTicketEmail } = require('../utils/email');
 
 exports.createTeam = async (req, res) => {
   try {
-    const { eventId, teamName } = req.body;
+    const { eventId, teamName, teamSize } = req.body;
     const event = await Event.findById(eventId);
     if (!event) return res.status(404).json({ message: 'Event not found' });
     if (event.eventType !== 'hackathon') return res.status(400).json({ message: 'Not a hackathon event' });
     if (!['published', 'ongoing'].includes(event.status)) return res.status(400).json({ message: 'Event not open' });
+
+    // Validate team size: leader chooses within organizer's max
+    const maxAllowed = event.teamSize || 4;
+    const chosenSize = parseInt(teamSize) || maxAllowed;
+    if (chosenSize < 2 || chosenSize > maxAllowed) {
+      return res.status(400).json({ message: `Team size must be between 2 and ${maxAllowed}` });
+    }
 
     // Check if user already has a team for this event
     const existing = await Team.findOne({ event: eventId, $or: [{ leader: req.user._id }, { 'members.user': req.user._id }] });
@@ -21,7 +28,7 @@ exports.createTeam = async (req, res) => {
       name: teamName,
       event: eventId,
       leader: req.user._id,
-      maxSize: event.teamSize || 4,
+      maxSize: chosenSize,
       members: []
     });
 
@@ -121,12 +128,21 @@ exports.inviteMember = async (req, res) => {
 
 exports.respondInvite = async (req, res) => {
   try {
-    const { action } = req.body; // 'accept' or 'decline'
+    const { action, memberId } = req.body; // 'accept' or 'decline'
     const team = await Team.findById(req.params.id).populate('event');
     if (!team) return res.status(404).json({ message: 'Team not found' });
 
-    const memberEntry = team.members.find(m => m.user.toString() === req.user._id.toString());
-    if (!memberEntry) return res.status(404).json({ message: 'No invite found' });
+    // Only team leader can accept/decline join requests
+    if (team.leader.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the team leader can accept or reject members' });
+    }
+
+    // Find the member to act on (by memberId from request body)
+    const memberEntry = team.members.find(m =>
+      (m.user.toString() === memberId) || (m._id && m._id.toString() === memberId)
+    );
+    if (!memberEntry) return res.status(404).json({ message: 'Member not found in team' });
+    if (memberEntry.status !== 'pending') return res.status(400).json({ message: 'Member is not in pending status' });
 
     memberEntry.status = action === 'accept' ? 'accepted' : 'declined';
     memberEntry.respondedAt = new Date();
@@ -136,13 +152,13 @@ exports.respondInvite = async (req, res) => {
     if (acceptedCount >= team.maxSize && action === 'accept') {
       team.status = 'complete';
       await team.save();
-      // Auto-complete registration for all members
-      await completeTeamRegistration(team);
+      // Auto-complete registration for all members (fire-and-forget)
+      completeTeamRegistration(team).catch(err => console.error('Team registration error:', err));
     } else {
       await team.save();
     }
 
-    res.json({ message: `Invitation ${action}ed`, team });
+    res.json({ message: `Member ${action}ed`, team });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -170,7 +186,7 @@ exports.leaveTeam = async (req, res) => {
 
 async function completeTeamRegistration(team) {
   try {
-    const event = await Event.findById(team.event._id || team.event);
+    const event = await Event.findById(team.event._id || team.event).populate('organizer');
     const allMemberIds = [team.leader, ...team.members.filter(m => m.status === 'accepted').map(m => m.user)];
 
     for (const userId of allMemberIds) {
@@ -193,7 +209,7 @@ async function completeTeamRegistration(team) {
 
       await Event.findByIdAndUpdate(team.event._id || team.event, { $inc: { registrationCount: 1 } });
 
-      try { await sendTicketEmail(user, event, reg); } catch (e) {}
+      try { await sendTicketEmail(user, event, reg); } catch (e) { console.error('Hackathon email error:', e.message); }
     }
 
     team.status = 'complete';
