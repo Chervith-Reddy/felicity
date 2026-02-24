@@ -1,53 +1,23 @@
 Felicity - Event Management Platform
 =====================================
 
-DEPLOYMENT INSTRUCTIONS & URLS
+DEPLOYMENT URLS
 --------------------------------
 
-Frontend (Vercel/Netlify):
-  Production URL: https://felicity-events.vercel.app
-  [Replace with your actual Vercel/Netlify URL after deployment]
+Frontend (Vercel):
+  Production URL: https://felicity-rho.vercel.app
 
-Backend API (Render/Railway):
-  Base API URL: https://felicity-api.onrender.com
-  [Replace with your actual Render/Railway URL after deployment]
+Backend API (Render):
+  Base API URL: https://felicity-nual.onrender.com
 
 Database:
-  MongoDB Atlas cluster (connection string stored in RENDER/RAILWAY env vars)
+  MongoDB Atlas cluster (connection string stored in Render env vars)
 
 
-HOW TO DEPLOY
---------------
+CREDENTIALS
+--------------------------------
+Admin Login:
+  Email: admin@felicity.com
+  Password: Admin@1234
 
-1. DATABASE — MongoDB Atlas
-   - Create free cluster at https://cloud.mongodb.com
-   - Create database user, whitelist 0.0.0.0/0 for cloud access
-   - Copy connection string → used in step 2
-
-2. BACKEND — Render (https://render.com)
-   - Connect GitHub repo, select "felicity/backend" as root directory
-   - Build command: npm install
-   - Start command: npm start
-   - Environment variables:
-       MONGODB_URI=<your Atlas URI>
-       JWT_SECRET=<strong random string>
-       IIIT_EMAIL_DOMAIN=iiit.ac.in
-       EMAIL_HOST=smtp.gmail.com
-       EMAIL_PORT=587
-       EMAIL_USER=<your Gmail>
-       EMAIL_PASS=<Gmail app password>
-       FRONTEND_URL=<your Vercel URL>
-       PORT=5000
-   - After deploy, run seed: open shell → node utils/seedAdmin.js
-
-3. FRONTEND — Vercel (https://vercel.com)
-   - Connect GitHub repo, select "felicity/frontend" as root directory
-   - Framework: Vite
-   - Environment variables:
-       VITE_API_URL=<your Render backend URL>/api
-   - Update vite.config.js proxy target to point to Render URL
-
-4. POST-DEPLOYMENT
-   - Update FRONTEND_URL env var on Render to match Vercel URL
-   - Run npm run seed:admin on Render shell to create admin account
-   - Admin login: admin@felicity.com / Admin@1234 (change immediately!)
+Note: Render free tier may take ~30-60 seconds to wake up on first request after inactivity.

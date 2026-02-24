@@ -60,8 +60,25 @@ require('./utils/socket')(io);
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => {
+  .then(async () => {
     console.log('✅ Connected to MongoDB');
+
+    // Auto-seed admin if not exists
+    try {
+      const User = require('./models/User');
+      const adminEmail = process.env.ADMIN_EMAIL || 'admin@felicity.com';
+      const existing = await User.findOne({ email: adminEmail });
+      if (!existing) {
+        await User.create({
+          firstName: 'Super', lastName: 'Admin',
+          email: adminEmail,
+          password: process.env.ADMIN_PASSWORD || 'Admin@1234',
+          role: 'admin', isActive: true, onboardingCompleted: true, type: 'IIIT'
+        });
+        console.log('✅ Admin seeded:', adminEmail);
+      }
+    } catch (e) { console.log('Admin seed skipped:', e.message); }
+
     server.listen(process.env.PORT || 5000, () => {
       console.log(`🚀 Felicity Server running on port ${process.env.PORT || 5000}`);
     });
