@@ -20,3 +20,4 @@ Admin Login:
   Email: admin@felicity.com
   Password: Admin@1234
 
+Note: Render free tier may take ~30-60 seconds to wake up on first request after inactivity.

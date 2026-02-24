@@ -102,7 +102,8 @@ export default function OrganizerEventDetail() {
     useEffect(() => {
         if (activeTab !== 'forum') return;
         const token = localStorage.getItem('felicity_token');
-        socketRef.current = io('http://localhost:5000', { auth: { token } });
+        const socketUrl = import.meta.env.PROD ? 'https://felicity-nual.onrender.com' : 'http://localhost:5000';
+        socketRef.current = io(socketUrl, { auth: { token } });
         socketRef.current.emit('join_forum', id);
         socketRef.current.on('new_message', (msg) => {
             setForumMessages(prev => [...prev, msg]);
@@ -427,9 +428,9 @@ export default function OrganizerEventDetail() {
                             forumMessages.map((msg, i) => (
                                 <div key={msg._id || i} className="group flex items-start space-x-2">
                                     <div className={`flex-1 px-4 py-2 rounded-2xl text-sm ${msg.isDeleted ? 'bg-gray-50 text-gray-400 italic' :
-                                            msg.isAnnouncement ? 'bg-primary-100 border border-primary-200 text-primary-800' :
-                                                msg.isPinned ? 'bg-yellow-50 border border-yellow-200 text-gray-800' :
-                                                    'bg-gray-100 text-gray-800'
+                                        msg.isAnnouncement ? 'bg-primary-100 border border-primary-200 text-primary-800' :
+                                            msg.isPinned ? 'bg-yellow-50 border border-yellow-200 text-gray-800' :
+                                                'bg-gray-100 text-gray-800'
                                         }`}>
                                         {msg.isAnnouncement && <p className="text-xs font-bold text-primary-600 mb-1">📢 ANNOUNCEMENT</p>}
                                         {msg.isPinned && <p className="text-xs font-bold text-yellow-600 mb-1">📌 Pinned</p>}

@@ -36,7 +36,8 @@ export default function AttendanceScanner() {
   // Real-time attendance updates via socket
   useEffect(() => {
     const token = localStorage.getItem('felicity_token');
-    socketRef.current = io(window.location.origin, { auth: { token } });
+    const socketUrl = import.meta.env.PROD ? 'https://felicity-nual.onrender.com' : 'http://localhost:5000';
+    socketRef.current = io(socketUrl, { auth: { token } });
     socketRef.current.emit('join_attendance', eventId);
     socketRef.current.on('new_checkin', () => { refetch(); });
     socketRef.current.on('checkin_reverted', () => { refetch(); });
@@ -159,7 +160,7 @@ export default function AttendanceScanner() {
             {!manualMode ? (
               <div>
                 <div className={`w-full h-48 rounded-xl border-2 border-dashed flex items-center justify-center mb-4 transition-colors ${scanResult?.success ? 'border-green-400 bg-green-50' :
-                    scanResult?.success === false ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'
+                  scanResult?.success === false ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'
                   }`}>
                   {scanResult ? (
                     <div className="text-center">

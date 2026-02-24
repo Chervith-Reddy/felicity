@@ -70,7 +70,8 @@ export default function EventDetail() {
   useEffect(() => {
     if (!isRegistered || activeTab !== 'forum') return;
     const token = localStorage.getItem('felicity_token');
-    socketRef.current = io('http://localhost:5000', { auth: { token } });
+    const socketUrl = import.meta.env.PROD ? 'https://felicity-nual.onrender.com' : 'http://localhost:5000';
+    socketRef.current = io(socketUrl, { auth: { token } });
     socketRef.current.emit('join_forum', id);
     socketRef.current.on('new_message', (msg) => {
       setForumMessages(prev => [...prev, msg]);
